@@ -4,5 +4,7 @@ project(ChessEngine)
 set(CMAKE_CXX_STANDARD 26)
 
 add_executable(ChessEngine main.cpp
-        Pieces.cpp
-        Pieces.h)
+        Piece.cpp
+        Piece.h
+        Board.cpp
+        Board.h)
