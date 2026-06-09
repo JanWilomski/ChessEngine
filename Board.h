@@ -90,7 +90,7 @@ class Board {
         return (p == Piece::WhiteRook || p == Piece::WhiteBishop || p == Piece::WhiteKnight || p == Piece::WhiteQueen || p == Piece::WhiteKing || p == Piece::WhitePawn);
     }
     bool isBlackPiece(Piece p) {
-        return (p == Piece::WhiteRook || p == Piece::WhiteBishop || p == Piece::WhiteKnight || p == Piece::WhiteQueen || p == Piece::WhiteKing || p == Piece::WhitePawn);
+        return (p == Piece::BlackRook || p == Piece::BlackBishop || p == Piece::BlackKnight || p == Piece::BlackQueen || p == Piece::BlackKing || p == Piece::BlackPawn);
     }
 
     std::array<Piece, 64> getBoard() {
@@ -154,8 +154,13 @@ class Board {
                 return true;
             }
         }
-        if (startPiece == Piece::WhiteKing || startPiece == Piece::BlackKing) {
-            if (diffX <= 1 && diffY <= 1) {
+        if (startPiece == Piece::WhiteKing) {
+            if (diffX <= 1 && diffY <= 1 && !isSquareAttacked(m.targetSquare, true)) {
+                return true;
+            }
+        }
+        if (startPiece == Piece::BlackKing) {
+            if (diffX <= 1 && diffY <= 1 && !isSquareAttacked(m.targetSquare, false)) {
                 return true;
             }
         }
@@ -271,6 +276,45 @@ class Board {
             }
         }
         return false;
+    }
+
+
+
+
+    // 1. Szukamy naszego Króla
+    int getKingSquare(bool isWhite) {
+        Piece targetKing = isWhite ? Piece::WhiteKing : Piece::BlackKing;
+        for (int i = 0; i < 64; i++) {
+            if (board[i] == targetKing) return i;
+        }
+        return -1; // Zabezpieczenie, choć Król zawsze powinien być na planszy
+    }
+
+    // 2. Sprawdzamy, czy dane pole jest pod ostrzałem
+    bool isSquareAttacked(int targetSquare, bool byWhite) {
+        for (int i = 0; i < 64; i++) {
+            Piece p = board[i];
+            if (p == Piece::None) continue;
+
+
+            if (byWhite && !isWhitePiece(p)) continue;
+            if (!byWhite && !isBlackPiece(p)) continue;
+
+
+            Move hypotheticalMove(i, targetSquare);
+
+            if (isLegalMove(hypotheticalMove)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    bool isInCheck(bool isWhiteTurn) {
+        int kingSquare = getKingSquare(isWhiteTurn);
+
+        return isSquareAttacked(kingSquare, !isWhiteTurn);
     }
 
 

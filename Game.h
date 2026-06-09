@@ -30,6 +30,9 @@ class Game {
         std::string ruch;
         while (true) {
             board.printBoard();
+            if (isWhiteMove()) {
+                std::cout << "\nRuch bialych";
+            }else std::cout << "\nRuch czarnych";
             std::cout << "\nPodaj ruch (np. e2e4) lub wpisz 'exit': ";
             std::cin >> ruch;
 
@@ -68,8 +71,21 @@ class Game {
                 continue;
             }
 
-            // 3. Wykonanie ruchu na planszy
-            board.makeMove(m);
+            Board tempBoard = board;
+            tempBoard.makeMove(m);
+
+
+            bool isWhite = (move == WHITE);
+            if (tempBoard.isInCheck(isWhite)) {
+                std::cout << "Nie mozesz tego zrobic! Krol bedzie pod szachem.\n";
+                continue;
+            }
+
+            board = tempBoard;
+
+            if (board.isInCheck(!isWhite)) {
+                std::cout << "\n*** SZACH! ***\n";
+            }
 
             if (move == WHITE) {
                 move = BLACK;
@@ -77,6 +93,10 @@ class Game {
                 move = WHITE;
             }
         }
+    }
+
+    bool isWhiteMove() {
+        return move == WHITE;
     }
 };
 
