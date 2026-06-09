@@ -7,4 +7,8 @@ add_executable(ChessEngine main.cpp
         Piece.cpp
         Piece.h
         Board.cpp
-        Board.h)
+        Board.h
+        Game.cpp
+        Game.h
+        Move.cpp
+        Move.h)

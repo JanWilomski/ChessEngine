@@ -9,12 +9,14 @@
 #include <iostream>
 
 
+#include "Move.h"
 #include "Piece.h"
 
 
 class Board {
     private:
     std::array<Piece, 64> board{};
+    int enPassantSquare = -1;
 
     public:
     Board() {
@@ -87,30 +89,188 @@ class Board {
     bool isWhitePiece(Piece p) {
         return (p == Piece::WhiteRook || p == Piece::WhiteBishop || p == Piece::WhiteKnight || p == Piece::WhiteQueen || p == Piece::WhiteKing || p == Piece::WhitePawn);
     }
+    bool isBlackPiece(Piece p) {
+        return (p == Piece::WhiteRook || p == Piece::WhiteBishop || p == Piece::WhiteKnight || p == Piece::WhiteQueen || p == Piece::WhiteKing || p == Piece::WhitePawn);
+    }
 
-    void play() {
-        std::string ruch;
-        while (true) {
-            printBoard();
-            std::cout << "\nPodaj ruch (np. e2e4) lub wpisz 'exit': ";
-            std::cin >> ruch;
+    std::array<Piece, 64> getBoard() {
+        return board;
+    }
 
-            if (ruch == "exit") break;
+    void makeMove(Move m) {
+        Piece p = board[m.startSquare];
 
-            // 1. Dekodowanie pola startowego
-            int startX = ruch[0] - 'a';
-            int startY = ruch[1] - '1';
-            int startIndex = startY * 8 + startX;
+        // 1. Wykrywamy, czy ten ruch to właśnie bicie w przelocie
+        bool isEnPassant = (p == Piece::WhitePawn || p == Piece::BlackPawn) && (m.targetSquare == enPassantSquare);
 
-            // 2. Dekodowanie pola docelowego
-            int endX = ruch[2] - 'a';
-            int endY = ruch[3] - '1';
-            int endIndex = endY * 8 + endX;
+        // 2. Standardowe przesunięcie figury
+        board[m.targetSquare] = board[m.startSquare];
+        board[m.startSquare] = Piece::None;
 
-            // 3. Wykonanie ruchu na planszy
-            board[endIndex] = board[startIndex];
-            board[startIndex] = Piece::None;
+
+        if (isEnPassant) {
+            if (p == Piece::WhitePawn) {
+                board[m.targetSquare - 8] = Piece::None;
+            } else {
+                board[m.targetSquare + 8] = Piece::None;
+            }
         }
+
+        enPassantSquare = -1;
+
+        // Jeśli właśnie wykonano podwójny ruch pionem, zapisujemy pole "za nim"
+        if (p == Piece::WhitePawn && m.targetSquare == m.startSquare + 16) {
+            enPassantSquare = m.startSquare + 8;
+        }
+        else if (p == Piece::BlackPawn && m.targetSquare == m.startSquare - 16) {
+            enPassantSquare = m.startSquare - 8;
+        }
+    }
+
+    Piece getPiece(int index) {
+        return board[index];
+    }
+
+
+    bool isLegalMove(Move m) {
+        Piece startPiece = board[m.startSquare];
+        Piece targetPiece = board[m.targetSquare];
+
+        if (isWhitePiece(startPiece) && isWhitePiece(targetPiece)) return false;
+        if (isBlackPiece(startPiece) && isBlackPiece(targetPiece)) return false;
+
+        // Odtwarzamy współrzędne X i Y ze spłaszczonego indeksu (odwrotność naszego wzoru)
+        int startX = m.startSquare % 8;
+        int startY = m.startSquare / 8;
+        int endX = m.targetSquare % 8;
+        int endY = m.targetSquare / 8;
+
+        // Różnica (dystans) w osi X i Y
+        int diffX = std::abs(startX - endX);
+        int diffY = std::abs(startY - endY);
+
+        if (startPiece == Piece::WhiteKnight || startPiece == Piece::BlackKnight) {
+            if ((diffX==2&&diffY==1)||(diffX==1&&diffY==2)) {
+                return true;
+            }
+        }
+        if (startPiece == Piece::WhiteKing || startPiece == Piece::BlackKing) {
+            if (diffX <= 1 && diffY <= 1) {
+                return true;
+            }
+        }
+        if (startPiece == Piece::BlackRook || startPiece == Piece::WhiteRook) {
+            if (startX == endX || startY == endY) {
+                int step = 0;
+                if (startX == endX) {
+                    step = (endY > startY) ? 8 : -8;
+                } else {
+                    step = (endX > startX) ? 1 : -1;
+                }
+                int currentSquare = m.startSquare + step;
+                while (currentSquare != m.targetSquare) {
+                    if (board[currentSquare] != Piece::None) {
+                        return false;
+                    }
+                    currentSquare += step;
+                }
+                return true;
+            }
+        }
+        if (startPiece == Piece::BlackBishop || startPiece == Piece::WhiteBishop) {
+            if (diffX == diffY) {
+                int step = 0;
+                if (startY<endY) {
+                    step+=8;
+                }else step-=8;
+                if (startX<endX) {
+                    step+=1;
+                }else step-=1;
+                int currentSquare = m.startSquare + step;
+                while (currentSquare != m.targetSquare) {
+                    if (board[currentSquare] != Piece::None) {
+                        return false;
+                    }
+                    currentSquare += step;
+                }
+                return true;
+            }
+        }
+        if (startPiece == Piece::BlackQueen || startPiece == Piece::WhiteQueen) {
+            if (startX == endX || startY == endY) {
+                int step = 0;
+                if (startX == endX) {
+                    step = (endY > startY) ? 8 : -8;
+                } else {
+                    step = (endX > startX) ? 1 : -1;
+                }
+                int currentSquare = m.startSquare + step;
+                while (currentSquare != m.targetSquare) {
+                    if (board[currentSquare] != Piece::None) {
+                        return false;
+                    }
+                    currentSquare += step;
+                }
+                return true;
+            }
+            if (diffX == diffY) {
+                int step = 0;
+                if (startY<endY) {
+                    step+=8;
+                }else step-=8;
+                if (startX<endX) {
+                    step+=1;
+                }else step-=1;
+                int currentSquare = m.startSquare + step;
+                while (currentSquare != m.targetSquare) {
+                    if (board[currentSquare] != Piece::None) {
+                        return false;
+                    }
+                    currentSquare += step;
+                }
+                return true;
+            }
+        }
+        if (startPiece == Piece::WhitePawn) {
+            if (m.targetSquare == m.startSquare + 8 && targetPiece == Piece::None) {
+                return true;
+            }
+            if (startY == 1 && m.targetSquare == m.startSquare + 16 && targetPiece == Piece::None && board[m.startSquare + 8] == Piece::None) {
+                enPassantSquare=m.startSquare+8;
+                return true;
+            }
+
+            // Bicie po skosie (+7 lub +9) - cel nie może być pusty i sprawdzamy krawędzie
+            if ((m.targetSquare == m.startSquare + 7 || m.targetSquare == m.startSquare + 9) && (targetPiece != Piece::None||m.targetSquare==enPassantSquare)) {
+                // Zabezpieczenie przed "zawijaniem" planszy (które omawialiśmy wcześniej)
+                if (diffX == 1) {
+                    return true;
+                }
+            }
+
+        }
+        if (startPiece == Piece::BlackPawn) {
+            // Czarne idą w dół planszy (indeks maleje)
+
+            // Zwykły ruch do przodu o 1 pole
+            if (m.targetSquare == m.startSquare - 8 && targetPiece == Piece::None) {
+                return true;
+            }
+
+            // Podwójny ruch z pozycji startowej (wiersz 7, czyli y == 6)
+            if (startY == 6 && m.targetSquare == m.startSquare - 16 && targetPiece == Piece::None && board[m.startSquare - 8] == Piece::None) {
+                enPassantSquare=m.startSquare-8;
+                return true;
+            }
+
+            // Bicie po skosie (-7 lub -9)
+            if ((m.targetSquare == m.startSquare - 7 || m.targetSquare == m.startSquare - 9) && (targetPiece != Piece::None||m.targetSquare==enPassantSquare)) {
+                if (diffX == 1) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
 
