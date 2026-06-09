@@ -17,6 +17,13 @@ class Board {
     private:
     std::array<Piece, 64> board{};
     int enPassantSquare = -1;
+    bool wKingMoved = false;
+    bool wRookAMoved = false;
+    bool wRookHMoved = false;
+    bool bKingMoved = false;
+    bool bRookAMoved = false;
+    bool bRookHMoved = false;
+
 
     public:
     Board() {
@@ -103,6 +110,25 @@ class Board {
         // 1. Wykrywamy, czy ten ruch to właśnie bicie w przelocie
         bool isEnPassant = (p == Piece::WhitePawn || p == Piece::BlackPawn) && (m.targetSquare == enPassantSquare);
 
+        if (p == Piece::WhiteKing) wKingMoved = true;
+        if (p == Piece::BlackKing) bKingMoved = true;
+        if (p == Piece::WhiteRook) {
+            if (m.startSquare == 0) wRookAMoved = true;
+            if (m.startSquare == 7) wRookHMoved = true;
+        }
+        if (p == Piece::BlackRook) {
+            if (m.startSquare == 56) bRookAMoved = true;
+            if (m.startSquare == 63) bRookHMoved = true;
+        }
+
+        // --- WYKRYWANIE ROSZADY I PRZESUWANIE WIEŻY ---
+        if ((p == Piece::WhiteKing || p == Piece::BlackKing) && std::abs(m.startSquare - m.targetSquare) == 2) {
+            if (m.targetSquare == 6) { board[5] = Piece::WhiteRook; board[7] = Piece::None; } // Biała krótka
+            else if (m.targetSquare == 2) { board[3] = Piece::WhiteRook; board[0] = Piece::None; } // Biała długa
+            else if (m.targetSquare == 62) { board[61] = Piece::BlackRook; board[63] = Piece::None; } // Czarna krótka
+            else if (m.targetSquare == 58) { board[59] = Piece::BlackRook; board[56] = Piece::None; } // Czarna długa
+        }
+
         // 2. Standardowe przesunięcie figury
         board[m.targetSquare] = board[m.startSquare];
         board[m.startSquare] = Piece::None;
@@ -114,6 +140,12 @@ class Board {
             } else {
                 board[m.targetSquare + 8] = Piece::None;
             }
+        }
+
+        if (p == Piece::WhitePawn && m.targetSquare / 8 == 7) {
+            board[m.targetSquare] = Piece::WhiteQueen;
+        } else if (p == Piece::BlackPawn && m.targetSquare / 8 == 0) {
+            board[m.targetSquare] = Piece::BlackQueen;
         }
 
         enPassantSquare = -1;
@@ -154,32 +186,39 @@ class Board {
                 return true;
             }
         }
-        if (startPiece == Piece::WhiteKing) {
+        if (startPiece == Piece::WhiteKing || startPiece == Piece::BlackKing) {
             if (diffX <= 1 && diffY <= 1 && !isSquareAttacked(m.targetSquare, true)) {
                 return true;
             }
         }
-        if (startPiece == Piece::BlackKing) {
-            if (diffX <= 1 && diffY <= 1 && !isSquareAttacked(m.targetSquare, false)) {
-                return true;
+        if (startPiece == Piece::WhiteKing) {
+            if (diffX <= 1 && diffY <= 1) return true; // Zwykły ruch
+
+            // Roszada (Król się nie ruszył i nie jest szachowany)
+            if (!wKingMoved && !isInCheck(true)) {
+                // Krótka (Kingside)
+                if (m.targetSquare == 6 && !wRookHMoved && board[7] == Piece::WhiteRook && board[5] == Piece::None && board[6] == Piece::None) {
+                    if (!isSquareAttacked(5, false) && !isSquareAttacked(6, false)) return true;
+                }
+                // Długa (Queenside)
+                if (m.targetSquare == 2 && !wRookAMoved && board[0] == Piece::WhiteRook && board[1] == Piece::None && board[2] == Piece::None && board[3] == Piece::None) {
+                    if (!isSquareAttacked(2, false) && !isSquareAttacked(3, false)) return true;
+                }
             }
         }
-        if (startPiece == Piece::BlackRook || startPiece == Piece::WhiteRook) {
-            if (startX == endX || startY == endY) {
-                int step = 0;
-                if (startX == endX) {
-                    step = (endY > startY) ? 8 : -8;
-                } else {
-                    step = (endX > startX) ? 1 : -1;
+        if (startPiece == Piece::BlackKing) {
+            if (diffX <= 1 && diffY <= 1) return true; // Zwykły ruch
+
+            // Roszada
+            if (!bKingMoved && !isInCheck(false)) {
+                // Krótka
+                if (m.targetSquare == 62 && !bRookHMoved && board[63] == Piece::BlackRook && board[61] == Piece::None && board[62] == Piece::None) {
+                    if (!isSquareAttacked(61, true) && !isSquareAttacked(62, true)) return true;
                 }
-                int currentSquare = m.startSquare + step;
-                while (currentSquare != m.targetSquare) {
-                    if (board[currentSquare] != Piece::None) {
-                        return false;
-                    }
-                    currentSquare += step;
+                // Długa
+                if (m.targetSquare == 58 && !bRookAMoved && board[56] == Piece::BlackRook && board[57] == Piece::None && board[58] == Piece::None && board[59] == Piece::None) {
+                    if (!isSquareAttacked(58, true) && !isSquareAttacked(59, true)) return true;
                 }
-                return true;
             }
         }
         if (startPiece == Piece::BlackBishop || startPiece == Piece::WhiteBishop) {
@@ -272,6 +311,32 @@ class Board {
             if ((m.targetSquare == m.startSquare - 7 || m.targetSquare == m.startSquare - 9) && (targetPiece != Piece::None||m.targetSquare==enPassantSquare)) {
                 if (diffX == 1) {
                     return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Sprawdza, czy gracz ma jakikolwiek legalny i bezpieczny dla Króla ruch
+    bool hasLegalMoves(bool isWhiteTurn) {
+        for (int start = 0; start < 64; start++) {
+            Piece p = board[start];
+            if (p == Piece::None) continue;
+            if (isWhiteTurn && !isWhitePiece(p)) continue;
+            if (!isWhiteTurn && !isBlackPiece(p)) continue;
+
+            // Sprawdzamy każdy możliwy cel dla tej figury
+            for (int target = 0; target < 64; target++) {
+                Move testMove(start, target);
+
+                // Jeśli kształt ruchu jest legalny...
+                if (isLegalMove(testMove)) {
+                    // Tworzymy kopię planszy, by sprawdzić, czy Król nie wpadnie w szacha
+                    Board temp = *this;
+                    temp.makeMove(testMove);
+                    if (!temp.isInCheck(isWhiteTurn)) {
+                        return true; // Znaleźliśmy co najmniej 1 dozwolony ruch!
+                    }
                 }
             }
         }

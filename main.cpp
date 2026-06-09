@@ -8,9 +8,8 @@
 
 int main() {
     // TIP Press <shortcut actionId="RenameElement"/> when your caret is at the <b>lang</b> variable name to see how CLion can help you rename it.
-
-    Board board = Board();
-    Game game = Game(board);
+    
+    Game game = Game();
     game.play();
 
     return 0;

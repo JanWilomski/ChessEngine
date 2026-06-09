@@ -22,9 +22,6 @@ class Game {
 
     public:
 
-    Game(Board board) {
-        this->board = board;
-    }
 
     void play() {
         std::string ruch;
@@ -72,18 +69,22 @@ class Game {
             }
 
             Board tempBoard = board;
-            tempBoard.makeMove(m);
+            bool isWhiteTurnNext = !isWhiteMove();
+            bool isNextPlayerInCheck = board.isInCheck(isWhiteTurnNext);
 
-
-            bool isWhite = (move == WHITE);
-            if (tempBoard.isInCheck(isWhite)) {
-                std::cout << "Nie mozesz tego zrobic! Krol bedzie pod szachem.\n";
-                continue;
+            // --- SPRAWDZANIE KOŃCA GRY ---
+            if (!board.hasLegalMoves(isWhiteTurnNext)) {
+                board.printBoard(); // Rysujemy ostatni raz planszę
+                if (isNextPlayerInCheck) {
+                    std::cout << "\n*** SZACH MAT! Wygrywa " << (isWhiteMove() ? "Bialy" : "Czarny") << " ***\n";
+                } else {
+                    std::cout << "\n*** PAT! Remis ***\n";
+                }
+                break; // Kończymy grę (wychodzimy z pętli while)
             }
 
-            board = tempBoard;
-
-            if (board.isInCheck(!isWhite)) {
+            // Jeśli nie ma końca gry, ale jest szach
+            if (isNextPlayerInCheck) {
                 std::cout << "\n*** SZACH! ***\n";
             }
 
