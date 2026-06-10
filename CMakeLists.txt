@@ -11,4 +11,6 @@ add_executable(ChessEngine main.cpp
         Game.cpp
         Game.h
         Move.cpp
-        Move.h)
+        Move.h
+        Uci.cpp
+        Uci.h)

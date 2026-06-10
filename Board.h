@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <vector>
 
 
 #include "Move.h"
@@ -165,6 +166,8 @@ class Board {
 
 
     bool isLegalMove(Move m) {
+        if (m.startSquare < 0 || m.startSquare > 63 || m.targetSquare < 0 || m.targetSquare > 63) return false;
+        if (m.startSquare == m.targetSquare) return false;
         Piece startPiece = board[m.startSquare];
         Piece targetPiece = board[m.targetSquare];
 
@@ -194,31 +197,27 @@ class Board {
         if (startPiece == Piece::WhiteKing) {
             if (diffX <= 1 && diffY <= 1) return true; // Zwykły ruch
 
-            // Roszada (Król się nie ruszył i nie jest szachowany)
-            if (!wKingMoved && !isInCheck(true)) {
-                // Krótka (Kingside)
-                if (m.targetSquare == 6 && !wRookHMoved && board[7] == Piece::WhiteRook && board[5] == Piece::None && board[6] == Piece::None) {
-                    if (!isSquareAttacked(5, false) && !isSquareAttacked(6, false)) return true;
-                }
-                // Długa (Queenside)
-                if (m.targetSquare == 2 && !wRookAMoved && board[0] == Piece::WhiteRook && board[1] == Piece::None && board[2] == Piece::None && board[3] == Piece::None) {
-                    if (!isSquareAttacked(2, false) && !isSquareAttacked(3, false)) return true;
-                }
+            // Roszada krótka (Kingside) - najpierw sprawdzamy cel i figury, DOPIERO POTEM szachy
+            if (m.targetSquare == 6 && !wKingMoved && !wRookHMoved && board[7] == Piece::WhiteRook && board[5] == Piece::None && board[6] == Piece::None) {
+                if (!isInCheck(true) && !isSquareAttacked(5, false) && !isSquareAttacked(6, false)) return true;
+            }
+            // Roszada długa (Queenside)
+            if (m.targetSquare == 2 && !wKingMoved && !wRookAMoved && board[0] == Piece::WhiteRook && board[1] == Piece::None && board[2] == Piece::None && board[3] == Piece::None) {
+                if (!isInCheck(true) && !isSquareAttacked(2, false) && !isSquareAttacked(3, false)) return true;
             }
         }
+
+        // Logika Czarnego Króla
         if (startPiece == Piece::BlackKing) {
             if (diffX <= 1 && diffY <= 1) return true; // Zwykły ruch
 
-            // Roszada
-            if (!bKingMoved && !isInCheck(false)) {
-                // Krótka
-                if (m.targetSquare == 62 && !bRookHMoved && board[63] == Piece::BlackRook && board[61] == Piece::None && board[62] == Piece::None) {
-                    if (!isSquareAttacked(61, true) && !isSquareAttacked(62, true)) return true;
-                }
-                // Długa
-                if (m.targetSquare == 58 && !bRookAMoved && board[56] == Piece::BlackRook && board[57] == Piece::None && board[58] == Piece::None && board[59] == Piece::None) {
-                    if (!isSquareAttacked(58, true) && !isSquareAttacked(59, true)) return true;
-                }
+            // Roszada krótka
+            if (m.targetSquare == 62 && !bKingMoved && !bRookHMoved && board[63] == Piece::BlackRook && board[61] == Piece::None && board[62] == Piece::None) {
+                if (!isInCheck(false) && !isSquareAttacked(61, true) && !isSquareAttacked(62, true)) return true;
+            }
+            // Roszada długa
+            if (m.targetSquare == 58 && !bKingMoved && !bRookAMoved && board[56] == Piece::BlackRook && board[57] == Piece::None && board[58] == Piece::None && board[59] == Piece::None) {
+                if (!isInCheck(false) && !isSquareAttacked(58, true) && !isSquareAttacked(59, true)) return true;
             }
         }
         if (startPiece == Piece::BlackBishop || startPiece == Piece::WhiteBishop) {
@@ -357,6 +356,7 @@ class Board {
 
     // 2. Sprawdzamy, czy dane pole jest pod ostrzałem
     bool isSquareAttacked(int targetSquare, bool byWhite) {
+        if (targetSquare < 0 || targetSquare > 63) return false;
         for (int i = 0; i < 64; i++) {
             Piece p = board[i];
             if (p == Piece::None) continue;
@@ -380,6 +380,45 @@ class Board {
         int kingSquare = getKingSquare(isWhiteTurn);
 
         return isSquareAttacked(kingSquare, !isWhiteTurn);
+    }
+
+
+    std::string indexToNotation(int index) {
+        char file = 'a' + (index % 8);
+        char rank = '1' + (index / 8);
+        return std::string{file, rank};
+    }
+
+    // Zbiera wszystkie ruchy i zwraca jeden z nich
+    Move getRandomLegalMove(bool isWhiteTurn) {
+        std::vector<Move> legalMoves;
+
+        for (int start = 0; start < 64; start++) {
+            Piece p = board[start];
+            if (p == Piece::None) continue;
+            if (isWhiteTurn && !isWhitePiece(p)) continue;
+            if (!isWhiteTurn && !isBlackPiece(p)) continue;
+
+            for (int target = 0; target < 64; target++) {
+                Move testMove(start, target);
+                if (isLegalMove(testMove)) {
+                    Board temp = *this;
+                    temp.makeMove(testMove);
+                    if (!temp.isInCheck(isWhiteTurn)) {
+                        legalMoves.push_back(testMove);
+                    }
+                }
+            }
+        }
+
+        // Jeśli są jakieś ruchy, zwracamy losowy
+        if (!legalMoves.empty()) {
+            int randomIndex = std::rand() % legalMoves.size();
+            return legalMoves[randomIndex];
+        }
+
+        // Zabezpieczenie (jeśli jest mat/pat)
+        return Move(-1, -1);
     }
 
 
