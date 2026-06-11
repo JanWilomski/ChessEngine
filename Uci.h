@@ -4,13 +4,19 @@
 #include <iostream>
 #include <string>
 #include <sstream>
+#include <ctime>    // <--- DODANE (do odczytu zegara systemowego)
+#include <cstdlib>  // <--- DODANE (do obsługi rand i srand)
 #include "Board.h"
 
 class Uci {
 public:
     void loop() {
-        // WYŁĄCZENIE BUFOROWANIA - KRYTYCZNE DLA SILNIKÓW UCI!
         setvbuf(stdout, NULL, _IONBF, 0);
+
+        // --- TUTAJ NAPRAWA NR 2 (Losowość) ---
+        // Karmimy generator liczb pseudolosowych obecnym czasem z zegara komputera.
+        // Dzięki temu silnik w każdej grze zagra coś innego!
+        std::srand(std::time(nullptr));
 
         Board board;
         bool isWhiteTurn = true;
@@ -34,20 +40,21 @@ public:
                 isWhiteTurn = true;
             }
             else if (token == "position") {
+
+                // --- TUTAJ NAPRAWA NR 1 (Reset planszy) ---
+                // Niezależnie od tego, czy GUI mówi "startpos", czy daje długi format "fen",
+                // ZAWSZE resetujemy planszę przed wczytaniem nowej historii ruchów!
+                board = Board();
+                isWhiteTurn = true;
+
                 std::string subToken;
-                ss >> subToken;
 
-                if (subToken == "startpos") {
-                    board = Board();
-                    isWhiteTurn = true;
-                }
-
-                // Szukamy słowa "moves", bezpiecznie ignorując resztę (np. format FEN)
+                // Przeskakujemy słowa aż nie trafimy na "moves" (ignorujemy całą resztę śmieci z GUI)
                 while (ss >> subToken) {
                     if (subToken == "moves") break;
                 }
 
-                // Odczytujemy same ruchy (tylko te, które mają min. 4 znaki)
+                // Odczytujemy same ruchy i aktualizujemy naszą świeżą planszę
                 while (ss >> subToken) {
                     if (subToken.length() >= 4) {
                         int startX = subToken[0] - 'a';
@@ -57,22 +64,37 @@ public:
 
                         Move m(startY * 8 + startX, endY * 8 + endX);
                         board.makeMove(m);
+                        std::cout << "info string Score: " << board.getScore(isWhiteTurn) << std::endl;
+
                         isWhiteTurn = !isWhiteTurn;
                     }
                 }
             }
             else if (token == "go") {
-                Move best = board.getRandomLegalMove(isWhiteTurn);
+                Move best = board.getBestMove(isWhiteTurn, 5);
 
-                // TARCZA 3: Jeśli mamy ruch, wysyłamy go. Jeśli jest Mat - mówimy "0000".
                 if (best.startSquare != -1 && best.targetSquare != -1) {
-                    std::cout << "bestmove "
-                              << board.indexToNotation(best.startSquare)
-                              << board.indexToNotation(best.targetSquare)
-                              << std::endl; // std::endl wymusza natychmiastowe wysłanie!
+                    // Sklejamy standardowy ruch (np. "b2a1")
+                    std::string moveString = board.indexToNotation(best.startSquare) + board.indexToNotation(best.targetSquare);
+
+                    // --- NAPRAWA: Zabezpieczenie Promocji dla UCI ---
+                    Piece p = board.getPiece(best.startSquare);
+                    if (p == Piece::WhitePawn && best.targetSquare / 8 == 7) {
+                        moveString += "q"; // Doklejamy 'q' dla białych
+                    } else if (p == Piece::BlackPawn && best.targetSquare / 8 == 0) {
+                        moveString += "q"; // Doklejamy 'q' dla czarnych
+                    }
+
+                    // Wysyłamy poprawiony tekst do GUI
+                    std::cout << "bestmove " << moveString << std::endl;
+
                 } else {
                     std::cout << "bestmove 0000" << std::endl;
                 }
+            }
+            else if (token == "eval") {
+                int score = board.getScore(isWhiteTurn);
+                std::cout << "info string Score: " << score << std::endl;
             }
             else if (token == "quit") {
                 break;
