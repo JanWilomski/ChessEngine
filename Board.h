@@ -195,16 +195,19 @@ public:
         // --- Pionki ---
         if (startPiece == Piece::WhitePawn) {
             if (m.targetSquare == m.startSquare + 8 && targetPiece == Piece::None) return true;
-            if (startY == 1 && m.targetSquare == m.startSquare + 16 && targetPiece == Piece::None && board[m.startSquare + 8] == Piece::None) return true;
-            if ((m.targetSquare == m.startSquare + 7 || m.targetSquare == m.startSquare + 9) && (targetPiece != Piece::None || m.targetSquare == enPassantSquare)) {
+            if (startY == 1 && m.targetSquare == m.startSquare + 16 && targetPiece == Piece::None && board[m.startSquare + 8] == Piece::None) {
+                return true;
+            }
+            if ((m.targetSquare == m.startSquare + 7 || m.targetSquare == m.startSquare + 9) && (targetPiece != Piece::None||m.targetSquare==enPassantSquare)) {
                 if (diffX == 1) return true;
             }
         }
-
         if (startPiece == Piece::BlackPawn) {
             if (m.targetSquare == m.startSquare - 8 && targetPiece == Piece::None) return true;
-            if (startY == 6 && m.targetSquare == m.startSquare - 16 && targetPiece == Piece::None && board[m.startSquare - 8] == Piece::None) return true;
-            if ((m.targetSquare == m.startSquare - 7 || m.targetSquare == m.startSquare - 9) && (targetPiece != Piece::None || m.targetSquare == enPassantSquare)) {
+            if (startY == 6 && m.targetSquare == m.startSquare - 16 && targetPiece == Piece::None && board[m.startSquare - 8] == Piece::None) {
+                return true;
+            }
+            if ((m.targetSquare == m.startSquare - 7 || m.targetSquare == m.startSquare - 9) && (targetPiece != Piece::None||m.targetSquare==enPassantSquare)) {
                 if (diffX == 1) return true;
             }
         }
@@ -303,58 +306,82 @@ public:
 
 
     int getScore(bool isWhiteTurn) {
+
+        static const int pawnTable[64] = {
+             0,  0,  0,  0,  0,  0,  0,  0,
+             5, 10, 10,-20,-20, 10, 10,  5,
+             5, -5,-10,  0,  0,-10, -5,  5,
+             0,  0,  0, 20, 20,  0,  0,  0,
+             5,  5, 10, 25, 25, 10,  5,  5,
+            10, 10, 20, 30, 30, 20, 10, 10,
+            50, 50, 50, 50, 50, 50, 50, 50,
+             0,  0,  0,  0,  0,  0,  0,  0
+        };
+
+        static const int knightTable[64] = {
+            -50,-40,-30,-30,-30,-30,-40,-50,
+            -40,-20,  0,  0,  0,  0,-20,-40,
+            -30,  0, 10, 15, 15, 10,  0,-30,
+            -30,  5, 15, 20, 20, 15,  5,-30,
+            -30,  0, 15, 20, 20, 15,  0,-30,
+            -30,  5, 10, 15, 15, 10,  5,-30,
+            -40,-20,  0,  5,  5,  0,-20,-40,
+            -50,-40,-30,-30,-30,-30,-40,-50
+        };
+
+        static const int bishopTable[64] = {
+            -20,-10,-10,-10,-10,-10,-10,-20,
+            -10,  0,  0,  0,  0,  0,  0,-10,
+            -10,  0,  5, 10, 10,  5,  0,-10,
+            -10,  5,  5, 10, 10,  5,  5,-10,
+            -10,  0, 10, 10, 10, 10,  0,-10,
+            -10, 10, 10, 10, 10, 10, 10,-10,
+            -10,  5,  0,  0,  0,  0,  5,-10,
+            -20,-10,-10,-10,-10,-10,-10,-20
+        };
+
         int whiteMaterial = 0;
         int blackMaterial = 0;
-        std::map<int, bool> whiteLegalMoves = {};
-        std::map<int, bool> blackLegalMoves = {};
 
         for (int i = 0; i < 64; i++) {
             Piece p = board[i];
             if (p == Piece::None) continue;
-            if (p == Piece::WhitePawn)   whiteMaterial += 100;
-            else if (p == Piece::WhiteKnight) whiteMaterial += 300;
-            else if (p == Piece::WhiteBishop) whiteMaterial += 300;
+
+            int blackIndex = i ^ 56;
+
+            if (p == Piece::WhitePawn)        whiteMaterial += 100 + pawnTable[i];
+            else if (p == Piece::WhiteKnight) whiteMaterial += 300 + knightTable[i];
+            else if (p == Piece::WhiteBishop) whiteMaterial += 300 + bishopTable[i];
             else if (p == Piece::WhiteRook)   whiteMaterial += 500;
             else if (p == Piece::WhiteQueen)  whiteMaterial += 900;
+            else if (p == Piece::WhiteKing)   whiteMaterial += 20000;
 
-            else if (p == Piece::BlackPawn)   blackMaterial += 100;
-            else if (p == Piece::BlackKnight) blackMaterial += 300;
-            else if (p == Piece::BlackBishop) blackMaterial += 300;
+            else if (p == Piece::BlackPawn)   blackMaterial += 100 + pawnTable[blackIndex];
+            else if (p == Piece::BlackKnight) blackMaterial += 300 + knightTable[blackIndex];
+            else if (p == Piece::BlackBishop) blackMaterial += 300 + bishopTable[blackIndex];
             else if (p == Piece::BlackRook)   blackMaterial += 500;
             else if (p == Piece::BlackQueen)  blackMaterial += 900;
-
-            else if (p == Piece::WhiteKing)   whiteMaterial += 20000;
             else if (p == Piece::BlackKing)   blackMaterial += 20000;
-
-            for (int j = 0; j < 64; j++) {
-                if (isWhitePiece(p)&&isLegalMove(Move(i, j))) {
-                    whiteLegalMoves.insert({j, true});
-                }else if (isBlackPiece(p)&&isLegalMove(Move(i, j)))blackLegalMoves.insert({j, true});
-            }
         }
-        whiteMaterial += whiteLegalMoves.size()*10;
-        blackMaterial += blackLegalMoves.size()*10;
 
-
-        if (isWhiteTurn) {
-            return whiteMaterial - blackMaterial;
-        } else {
-            return blackMaterial - whiteMaterial;
-        }
+        if (isWhiteTurn) return whiteMaterial - blackMaterial;
+        else return blackMaterial - whiteMaterial;
     }
 
     Move getBestMove(bool isWhiteTurn, int depth = 4) {
         std::vector<Move> legalMoves = getAllLegalMoves(isWhiteTurn);
 
         if (legalMoves.empty()) return Move(-1, -1);
-        int bestScore = -100000;
+        int bestScore = -999999;
+        int alpha = -999999;
+        int beta = 999999;
         Move bestMove = legalMoves[0];
 
         for (Move ruch : legalMoves) {
             Board temp = *this;
             temp.makeMove(ruch);
 
-            int score = -temp.negamax(depth - 1, -999999, 999999, !isWhiteTurn);
+            int score = -temp.negamax(depth - 1, alpha, beta, !isWhiteTurn);
 
             // std::cout << "info string Bada ruch: "
             //           << indexToNotation(ruch.startSquare) << indexToNotation(ruch.targetSquare)
@@ -378,7 +405,11 @@ public:
             for (int i = 0; i < 64; i++) {
                 Move testMove(start, i);
                 if (isLegalMove(testMove)) {
-                    legalMoves.push_back(testMove);
+                    Board temp = *this;
+                    temp.makeMove(testMove);
+                    if (!temp.isInCheck(isWhiteTurn)) {
+                        legalMoves.push_back(testMove);
+                    }
                 }
             }
         }
@@ -388,10 +419,9 @@ public:
 
     int negamax(int depth, int alpha, int beta, bool isWhiteTurn) {
         if (depth <= 0) return getScore(isWhiteTurn);
-
         std::vector<Move> ruchy = getAllLegalMoves(isWhiteTurn);
         if (ruchy.empty()) {
-            if (isInCheck(isWhiteTurn)) return -99999;
+            if (isInCheck(isWhiteTurn)) return -90000 - depth;
             else return 0;
         }
 

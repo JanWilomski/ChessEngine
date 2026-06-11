@@ -71,7 +71,7 @@ public:
                 }
             }
             else if (token == "go") {
-                Move best = board.getBestMove(isWhiteTurn, 5);
+                Move best = board.getBestMove(isWhiteTurn, 6);
 
                 if (best.startSquare != -1 && best.targetSquare != -1) {
                     // Sklejamy standardowy ruch (np. "b2a1")
