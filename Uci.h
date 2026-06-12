@@ -21,6 +21,7 @@ public:
         Board board;
         bool isWhiteTurn = true;
         std::string line;
+        std::vector<uint64_t> gameHistory;
 
         while (std::getline(std::cin, line)) {
             std::stringstream ss(line);
@@ -40,23 +41,35 @@ public:
                 isWhiteTurn = true;
             }
             else if (token == "position") {
-
-                // --- TUTAJ NAPRAWA NR 1 (Reset planszy) ---
-                // Niezależnie od tego, czy GUI mówi "startpos", czy daje długi format "fen",
-                // ZAWSZE resetujemy planszę przed wczytaniem nowej historii ruchów!
-                board = Board();
-                isWhiteTurn = true;
-
+                gameHistory.clear();
                 std::string subToken;
+                ss >> subToken; // Pobieramy kolejne słowo (startpos lub fen)
 
-                // Przeskakujemy słowa aż nie trafimy na "moves" (ignorujemy całą resztę śmieci z GUI)
-                while (ss >> subToken) {
-                    if (subToken == "moves") break;
+                if (subToken == "startpos") {
+                    board = Board(); // Domyślna plansza
+                    isWhiteTurn = true;
+
+                    // Przewijamy tekst, aż natrafimy na "moves"
+                    while (ss >> subToken) {
+                        if (subToken == "moves") break;
+                    }
+                }
+                else if (subToken == "fen") {
+                    std::string fenStr = "";
+                    // FEN może mieć dużo spacji, sklejamy go w jeden napis
+                    while (ss >> subToken) {
+                        if (subToken == "moves") break; // Przerywamy sklejanie, gdy zaczną się ruchy
+                        fenStr += subToken + " ";
+                    }
+                    // Wywołujemy układanie szachownicy i pobieramy informacje o turze
+                    isWhiteTurn = board.loadFen(fenStr);
                 }
 
-                // Odczytujemy same ruchy i aktualizujemy naszą świeżą planszę
+                // Jeśli w poprzednich krokach trafiliśmy na "moves", to wczytujemy historię ruchów
                 while (ss >> subToken) {
                     if (subToken.length() >= 4) {
+                        gameHistory.push_back(board.getHash(isWhiteTurn));
+
                         int startX = subToken[0] - 'a';
                         int startY = subToken[1] - '1';
                         int endX = subToken[2] - 'a';
@@ -64,14 +77,13 @@ public:
 
                         Move m(startY * 8 + startX, endY * 8 + endX);
                         board.makeMove(m);
-                        std::cout << "info string Score: " << board.getScore(isWhiteTurn) << std::endl;
 
                         isWhiteTurn = !isWhiteTurn;
                     }
                 }
             }
             else if (token == "go") {
-                Move best = board.getBestMove(isWhiteTurn, 6);
+                Move best = board.getBestMove(isWhiteTurn, 6, gameHistory);
 
                 if (best.startSquare != -1 && best.targetSquare != -1) {
                     // Sklejamy standardowy ruch (np. "b2a1")
